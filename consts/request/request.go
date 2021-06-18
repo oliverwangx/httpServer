@@ -1,4 +1,4 @@
-package main
+package requestType
 
 const (
 	Login          string = "login"

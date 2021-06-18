@@ -1,4 +1,4 @@
-package main
+package model
 
 type User struct {
 	Username string

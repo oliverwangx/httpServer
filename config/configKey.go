@@ -1,4 +1,4 @@
-package main
+package config
 
 const (
 	WebHost    = "WEB_HOST"
@@ -8,4 +8,5 @@ const (
 	RedisHost  = "REDIS_HOST"
 	RedisPort  = "REDIS_PORT"
 	AvatarPort = "AVATAR_PORT"
+	SqlConn    = "SQL_CONN"
 )

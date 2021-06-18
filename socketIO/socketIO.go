@@ -1,4 +1,4 @@
-package main
+package socketIO
 
 import (
 	"encoding/binary"
@@ -10,7 +10,7 @@ import (
 
 const SIZE_LEN = 8
 
-func send(conn net.Conn, bytes []byte) error {
+func Send(conn net.Conn, bytes []byte) error {
 	size := len(bytes)
 	// send the total size first
 	sizeBytes := make([]byte, SIZE_LEN)
@@ -35,7 +35,7 @@ func send(conn net.Conn, bytes []byte) error {
 	return nil
 }
 
-func receive(conn net.Conn) ([]byte, error) {
+func Receive(conn net.Conn) ([]byte, error) {
 	sizeBuf := make([]byte, SIZE_LEN)
 	n, sizeErr := conn.Read(sizeBuf)
 	fmt.Println("read size " + strconv.Itoa(n))
