@@ -24,8 +24,11 @@ var serverConfig map[string]string
 var connectionPool *utils.ConnectionPool
 
 func StartHttp() (err error) {
+	if serverConfig, err = config.GetConfig(); err != nil {
+		return
+	}
 	connectionPool = utils.NewConnectionPool(5, initConnectionToTcp)
-	defer connectionPool.Close()
+	// defer connectionPool.Close()
 	http.HandleFunc("/login", handleLoginRequest)
 	http.HandleFunc("/update_avatar", handleUpdateAvatarRequest)
 	http.HandleFunc("/update_nickname", handleUpdateNickNameRequest)
@@ -35,7 +38,7 @@ func StartHttp() (err error) {
 }
 
 func initConnectionToTcp() (net.Conn, error) {
-	socket, err := net.DialTimeout("tcp", serverConfig[config.TcpHost]+":"+serverConfig[config.TcpPort], 1*time.Second)
+	socket, err := net.Dial("tcp", serverConfig[config.TcpHost]+":"+serverConfig[config.TcpPort])
 	if err != nil {
 		fmt.Println("Error in connection to tcp: " + err.Error())
 		return nil, err
@@ -204,6 +207,7 @@ func receiveResponse(conn net.Conn, w http.ResponseWriter) {
 		w.WriteHeader(statusCode.ServerError)
 		return
 	}
+	fmt.Println("Receive response", resp)
 	if resp.RequestType == requestType.Login {
 		// set cookie for http
 		setCookie(w, resp)
@@ -214,14 +218,14 @@ func receiveResponse(conn net.Conn, w http.ResponseWriter) {
 func setCookie(w http.ResponseWriter, response model.HttpResponse) {
 	sessionInfo := response.Body
 	if sessionInfo != nil {
-		cookie := http.Cookie{Name: sessionInfo["Username"].(string), Value: sessionInfo["Token"].(string)}
+		cookie := http.Cookie{Name: sessionInfo["user"].(model.User).Username, Value: sessionInfo["token"].(string)}
 		http.SetCookie(w, &cookie)
 	}
 }
 
 func writeResponse(w http.ResponseWriter, response model.HttpResponse) {
 	w.Header().Set("Content-type", "application/json")
-	bytes, err := json.Marshal(response.Body)
+	bytes, err := json.Marshal(response)
 	if err != nil {
 		fmt.Println("writeResponse, json marshal error: " + err.Error())
 		w.WriteHeader(statusCode.ServerError)
@@ -236,11 +240,26 @@ func writeResponse(w http.ResponseWriter, response model.HttpResponse) {
 
 func handleTcpResponse(respBytes []byte) (resp model.HttpResponse, err error) {
 	fmt.Println("handle tcp response")
-	var response model.Response
+	var response model.BaseResponse
 	if err = json.Unmarshal(respBytes, &response); err != nil {
-		fmt.Println("handleTcpResponse, json unmarshal error: " + err.Error())
+		fmt.Println("handleTcpResponse, json unmarshal error:", err.Error())
 		return
 	}
-	resp = model.CastToHttpResponse(response)
+	switch response.RequestType {
+	case requestType.Login:
+		var r model.TcpLoginResponse
+		if err = json.Unmarshal(respBytes, &r); err != nil {
+			fmt.Println("handleTcpLoginResponse, json unmarshal error:", err.Error())
+			return
+		}
+		resp = model.CastToHttpResponse(r)
+	case requestType.UpdateAvatar, requestType.UpdateNickname:
+		var r model.TcpUpdateResponse
+		if err = json.Unmarshal(respBytes, &r); err != nil {
+			fmt.Println("handleTcpUpdateResponse, json unmarshal error:", err.Error())
+			return
+		}
+		resp = model.CastToHttpResponse(r)
+	}
 	return
 }

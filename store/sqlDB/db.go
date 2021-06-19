@@ -20,8 +20,9 @@ func (d *DBStore) Init() (err error) {
 	return
 }
 
-func (d *DBStore) GetUserByUsername(username string, user *model.User) (err error) {
-	err = d.db.QueryRow("SELECT username, password, avatar, nickname FROM User WHERE username = ?", username).Scan(user.Username, user.Password, user.Avatar, user.Nickname)
+func (d *DBStore) GetUserByUsername(username string) (user *model.User, err error) {
+	user = new(model.User)
+	err = d.db.QueryRow("SELECT username, password, avatar, nickname FROM User WHERE username = ?", username).Scan(&user.Username, &user.Password, &user.Avatar, &user.Nickname)
 	return
 }
 
@@ -36,6 +37,6 @@ func (d *DBStore) UpdateUserNickname(username string, nickname string) (err erro
 }
 
 func (d *DBStore) SetUserSession(username string, token string) (err error) {
-	_, err = d.db.Exec("INSERT INTO Session (Username, Token) VALUES (?, ?)", username, token)
+	_, err = d.db.Exec("INSERT INTO Session (username, session) VALUES (?, ?)", username, token)
 	return
 }

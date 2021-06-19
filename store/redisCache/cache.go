@@ -22,20 +22,22 @@ func (c *CacheStore) Init(serverConfig map[string]string) {
 	})
 }
 
-func (c *CacheStore) GetUserByUsername(ctx context.Context, username string, user *model.User) (ok bool, err error) {
+func (c *CacheStore) GetUserByUsername(ctx context.Context, username string) (user *model.User, err error) {
 	result := c.rds.HGetAll(ctx, username)
 	if result == nil {
 		fmt.Println("error in get user information")
-		ok, err = false, errors.New("nil result")
+		user, err = nil, errors.New("nil result")
 		return
 	} else if result.Err() != nil {
 		fmt.Println("redis HGet All Error: " + result.Err().Error())
-		ok, err = false, result.Err()
+		user, err = nil, result.Err()
 		return
 	}
-	data := result.Val()
-	castMapToUser(user, data)
-	ok, err = true, nil
+	if len(result.Val()) == 0 {
+		user = nil
+	} else {
+		user, err = castMapToUser(result.Val()), nil
+	}
 	return
 }
 
@@ -44,6 +46,7 @@ func (c *CacheStore) SetUser(ctx context.Context, username string, user *model.U
 		"username": user.Username,
 		"avatar":   user.Avatar,
 		"nickname": user.Nickname,
+		"password": user.Password,
 	}
 	err = c.rds.HSet(ctx, username, data).Err()
 	return
@@ -54,8 +57,12 @@ func (c *CacheStore) ClearUser(ctx context.Context, username string) (err error)
 	return
 }
 
-func castMapToUser(user *model.User, data map[string]string) {
-	user.Username = data["username"]
-	user.Avatar = data["avatar"]
-	user.Nickname = data["nickname"]
+func castMapToUser(data map[string]string) (user *model.User) {
+	user = &model.User{
+		Username: data["username"],
+		Avatar:   data["avatar"],
+		Nickname: data["nickname"],
+		Password: data["password"],
+	}
+	return
 }

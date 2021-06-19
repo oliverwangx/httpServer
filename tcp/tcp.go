@@ -37,8 +37,8 @@ func StartTCP() (err error) {
 	}
 	ctx = context.Background()
 	resgisterHttpUrl()
-	listenErr := listen()
-	return listenErr
+	err = listen()
+	return
 }
 
 func listen() (err error) {
@@ -68,19 +68,22 @@ func listen() (err error) {
 	}
 }
 
-func receiveRequest(conn net.Conn) (err error) {
+func receiveRequest(conn net.Conn) {
 	defer conn.Close()
 	for {
 		var req []byte
+		var err error
+		var response model.Response
 		if req, err = socketIO.Receive(conn); err != nil {
 			fmt.Println("process request error: " + err.Error())
-			return
+			response = model.NewErrResponse()
 		}
-		var response model.Response
 		if response, err = handleRequest(req); err != nil {
 			fmt.Println("handle request error: " + err.Error())
+			response = model.NewErrResponse()
 			return
 		}
+		fmt.Println(response)
 		var responseBytes []byte
 		if responseBytes, err = json.Marshal(response); err != nil {
 			fmt.Println("process request error: " + err.Error())
@@ -106,24 +109,30 @@ func handleRequest(request []byte) (resp model.Response, err error) {
 		if err = json.Unmarshal(request, loginParams); err != nil {
 			return
 		}
-		if resp, err = login(loginParams); err != nil {
-			return
+		resp, err = login(loginParams)
+		if err != nil {
+			resp = model.CastToTcpLoginResp(statusCode.ServerError, requestType.Login, model.User{}, "")
+			err = nil
 		}
 	case requestType.UpdateAvatar:
 		updateAvatarParams := new(model.UpdateAvatarParams)
 		if err = json.Unmarshal(request, updateAvatarParams); err != nil {
 			return
 		}
-		if resp, err = updateAvatar(updateAvatarParams); err != nil {
-			return
+		resp, err = updateAvatar(updateAvatarParams)
+		if err != nil {
+			resp = model.CastToTcpUpdateResp(statusCode.ServerError, requestType.UpdateAvatar, model.User{})
+			err = nil
 		}
 	case requestType.UpdateNickname:
 		updateNicknameParams := new(model.UpdateNicknameParams)
 		if err = json.Unmarshal(request, updateNicknameParams); err != nil {
 			return
 		}
-		if resp, err = updateNickname(updateNicknameParams); err != nil {
-			return
+		resp, err = updateNickname(updateNicknameParams)
+		if err != nil {
+			resp = model.CastToTcpUpdateResp(statusCode.ServerError, requestType.UpdateNickname, model.User{})
+			err = nil
 		}
 	default:
 		err = errors.New("invalid command")
@@ -131,50 +140,44 @@ func handleRequest(request []byte) (resp model.Response, err error) {
 	return
 }
 
-func login(params *model.LoginParams) (resp *model.TcpLoginResponse, err error) {
+func login(params *model.LoginParams) (resp model.TcpLoginResponse, err error) {
 	fmt.Println("Login")
-	user := new(model.User)
-	if err = dataStore.GetUserByUsername(ctx, params.Username, user); err != nil {
+	var user *model.User
+	if user, err = dataStore.GetUserByUsername(ctx, params.Username); err != nil {
 		if err == sql.ErrNoRows {
-			r := model.CastToTcpLoginResp(statusCode.NotFound, requestType.Login, model.User{}, 0)
-			resp = &r
-		} else {
-			r := model.CastToTcpLoginResp(statusCode.ServerError, requestType.Login, model.User{}, 0)
-			resp = &r
+			resp = model.CastToTcpLoginResp(statusCode.NotFound, requestType.Login, model.User{}, "")
+			err = nil
 		}
 		return
 	}
+	fmt.Println("User", user)
 	if user.Password != params.Password {
-		r := model.CastToTcpLoginResp(statusCode.Unauthorized, requestType.Login, model.User{Username: params.Username}, 0)
-		resp = &r
+		resp = model.CastToTcpLoginResp(statusCode.Unauthorized, requestType.Login, model.User{Username: params.Username}, "")
 		return
 	}
 	// generate a session token
 	token := utils.Hash(user.Username)
 	fmt.Println("token generated: ", strconv.FormatUint(token, 16), "for ", user.Username)
-	if err = dataStore.SetUserSession(ctx, user.Username, strconv.FormatUint(token, 16)); err != nil {
-		r := model.CastToTcpLoginResp(statusCode.ServerError, requestType.Login, model.User{}, 0)
-		resp = &r
+	tokenstr := strconv.FormatUint(token, 16)
+	if err = dataStore.SetUserSession(ctx, user.Username, tokenstr); err != nil {
+		fmt.Println("Set user session error", err.Error())
 		return
 	}
 	user.Password = ""
-	r := model.CastToTcpLoginResp(statusCode.Success, requestType.Login, *user, token)
-	resp = &r
+	resp = model.CastToTcpLoginResp(statusCode.Success, requestType.Login, *user, tokenstr)
 	return
 }
 
-func updateAvatar(params *model.UpdateAvatarParams) (resp *model.TcpUpdateResponse, err error) {
+func updateAvatar(params *model.UpdateAvatarParams) (resp model.TcpUpdateResponse, err error) {
 	fmt.Println("Update avatar")
 	if params.Username == "" || params.Avatar == nil {
-		r := model.CastToTcpUpdateResp(statusCode.BadRequest, requestType.UpdateAvatar, model.User{})
-		resp = &r
+		resp = model.CastToTcpUpdateResp(statusCode.BadRequest, requestType.UpdateAvatar, model.User{})
 		return
 	}
-	var user model.User
-	if err = dataStore.GetUserByUsername(ctx, params.Username, &user); err != nil {
+	var user *model.User
+	if user, err = dataStore.GetUserByUsername(ctx, params.Username); err != nil {
 		if err == sql.ErrNoRows {
-			r := model.CastToTcpUpdateResp(statusCode.NotFound, requestType.UpdateAvatar, model.User{})
-			resp = &r
+			resp = model.CastToTcpUpdateResp(statusCode.NotFound, requestType.UpdateAvatar, model.User{})
 		}
 		return
 	}
@@ -192,23 +195,20 @@ func updateAvatar(params *model.UpdateAvatarParams) (resp *model.TcpUpdateRespon
 	}
 	user.Avatar = url
 	user.Password = ""
-	r := model.CastToTcpUpdateResp(statusCode.Success, requestType.UpdateAvatar, user)
-	resp = &r
+	resp = model.CastToTcpUpdateResp(statusCode.Success, requestType.UpdateAvatar, *user)
 	return
 }
 
-func updateNickname(params *model.UpdateNicknameParams) (resp *model.TcpUpdateResponse, err error) {
+func updateNickname(params *model.UpdateNicknameParams) (resp model.TcpUpdateResponse, err error) {
 	fmt.Println("Update nickname")
 	if params.Username == "" {
-		r := model.CastToTcpUpdateResp(statusCode.BadRequest, requestType.UpdateNickname, model.User{})
-		resp = &r
+		resp = model.CastToTcpUpdateResp(statusCode.BadRequest, requestType.UpdateNickname, model.User{})
 		return
 	}
-	var user model.User
-	if err = dataStore.GetUserByUsername(ctx, params.Username, &user); err != nil {
+	var user *model.User
+	if user, err = dataStore.GetUserByUsername(ctx, params.Username); err != nil {
 		if err == sql.ErrNoRows {
-			r := model.CastToTcpUpdateResp(statusCode.NotFound, requestType.UpdateNickname, model.User{})
-			resp = &r
+			resp = model.CastToTcpUpdateResp(statusCode.NotFound, requestType.UpdateNickname, model.User{})
 		}
 		return
 	}
@@ -217,8 +217,7 @@ func updateNickname(params *model.UpdateNicknameParams) (resp *model.TcpUpdateRe
 	}
 	user.Nickname = params.Nickname
 	user.Password = ""
-	r := model.CastToTcpUpdateResp(statusCode.Success, requestType.UpdateNickname, user)
-	resp = &r
+	resp = model.CastToTcpUpdateResp(statusCode.Success, requestType.UpdateNickname, *user)
 	return
 }
 

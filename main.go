@@ -25,7 +25,7 @@ func main() {
 	case "http":
 		err := httpServer.StartHttp()
 		if err != nil {
-			fmt.Println("startWeb: " + err.Error())
+			fmt.Println("start http: " + err.Error())
 		}
 	case "test":
 		test.Run()

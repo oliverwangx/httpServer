@@ -10,6 +10,11 @@ type Response interface {
 	GetStatusCode() int
 }
 
+type BaseResponse struct {
+	StatusCode  int
+	RequestType string
+}
+
 type HttpResponse struct {
 	StatusCode  int
 	RequestType string
@@ -21,13 +26,26 @@ type TcpLoginResponse struct {
 	StatusCode  int
 	RequestType string
 	User        User
-	Token       uint64
+	Token       string
 }
 
 type TcpUpdateResponse struct {
 	StatusCode  int
 	RequestType string
 	User        User
+}
+
+type ErrResponse struct {
+	StatusCode  int
+	RequestType string
+}
+
+func (r BaseResponse) GetRequestType() string {
+	return r.RequestType
+}
+
+func (r BaseResponse) GetStatusCode() int {
+	return r.StatusCode
 }
 
 func (r TcpLoginResponse) GetRequestType() string {
@@ -38,7 +56,7 @@ func (r TcpLoginResponse) GetStatusCode() int {
 	return r.StatusCode
 }
 
-func CastToTcpLoginResp(statusCode int, requestType string, user User, token uint64) (resp TcpLoginResponse) {
+func CastToTcpLoginResp(statusCode int, requestType string, user User, token string) (resp TcpLoginResponse) {
 	resp = TcpLoginResponse{
 		StatusCode:  statusCode,
 		RequestType: requestType,
@@ -54,6 +72,21 @@ func (r TcpUpdateResponse) GetRequestType() string {
 
 func (r TcpUpdateResponse) GetStatusCode() int {
 	return r.StatusCode
+}
+
+func NewErrResponse() ErrResponse {
+	return ErrResponse{
+		RequestType: "Error",
+		StatusCode:  statusCode.ServerError,
+	}
+}
+
+func (r ErrResponse) GetRequestType() string {
+	return "Error"
+}
+
+func (r ErrResponse) GetStatusCode() int {
+	return statusCode.ServerError
 }
 
 func CastToTcpUpdateResp(statusCode int, requestType string, user User) (resp TcpUpdateResponse) {
@@ -74,12 +107,10 @@ func CastToHttpResponse(response Response) (r HttpResponse) {
 	}
 	switch response.GetRequestType() {
 	case requestType.Login:
-		r.Body["username"] = response.(TcpLoginResponse).User
+		r.Body["user"] = response.(TcpLoginResponse).User
 		r.Body["token"] = response.(TcpLoginResponse).Token
-	case requestType.UpdateAvatar:
-		r.Body["username"] = response.(TcpUpdateResponse).User
-	case requestType.UpdateNickname:
-		r.Body["username"] = response.(TcpUpdateResponse).User
+	case requestType.UpdateAvatar, requestType.UpdateNickname:
+		r.Body["user"] = response.(TcpUpdateResponse).User
 	}
 	return
 }

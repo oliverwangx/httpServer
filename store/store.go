@@ -21,21 +21,24 @@ func (d *DataStore) Init() (err error) {
 		fmt.Println("Error in fetching the server config")
 		return
 	}
+	d.cache = new(redisCache.CacheStore)
+	d.db = new(sqlDB.DBStore)
 	d.cache.Init(serverConfig)
 	err = d.db.Init()
 	return
 }
 
-func (d *DataStore) GetUserByUsername(ctx context.Context, username string, user *model.User) (err error) {
-	var ok bool
+func (d *DataStore) GetUserByUsername(ctx context.Context, username string) (user *model.User, err error) {
 	// fetch user information from cache
-	if ok, err = d.cache.GetUserByUsername(ctx, username, user); ok && err == nil {
+	if user, err = d.cache.GetUserByUsername(ctx, username); user != nil && err == nil {
 		return
 	}
 	// fetch from sql database
-	if err = d.db.GetUserByUsername(username, user); err != nil {
+	if user, err = d.db.GetUserByUsername(username); err != nil {
+		fmt.Println(err)
 		return
 	}
+	fmt.Println(user)
 	// add user to cache
 	err = d.cache.SetUser(ctx, username, user)
 	return
