@@ -70,22 +70,19 @@ func (pool *ConnectionPool) Close() {
 		return
 	}
 	pool.lock.Lock()
-	pool.Closed = true
-	pool.lock.Unlock()
 	if pool.ConnectionNum > 0 {
+		pool.Closed = true
 		for i := 0; i < pool.ConnectionNum; i++ {
 			conn := <-pool.Connections
 			err := conn.Close()
 			if err != nil {
-				// TODO: save the error, log
 				pool.Errors <- err
 				continue
 			}
 		}
-		pool.lock.Lock()
 		pool.ConnectionNum = 0
-		pool.lock.Unlock()
 	}
+	pool.lock.Unlock()
 }
 
 func (pool *ConnectionPool) LogErrors() {
