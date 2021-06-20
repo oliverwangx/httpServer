@@ -1,8 +1,8 @@
 package config
 
 const (
-	WebHost    = "WEB_HOST"
-	WebPort    = "WEB_PORT"
+	WebHost    = "HTTP_HOST"
+	WebPort    = "HTTP_PORT"
 	TcpPort    = "TCP_PORT"
 	TcpHost    = "TCP_HOST"
 	RedisHost  = "REDIS_HOST"

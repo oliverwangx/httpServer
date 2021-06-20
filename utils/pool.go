@@ -16,9 +16,6 @@ type ConnectionPool struct {
 	Errors        chan error
 }
 
-// pool.Close add lock or use atomic
-// select <- pool.Connections
-
 func NewConnectionPool(connectionNum int, createConnection func() (net.Conn, error)) *ConnectionPool {
 	pool := &ConnectionPool{
 		ConnectionNum: connectionNum,
@@ -28,7 +25,6 @@ func NewConnectionPool(connectionNum int, createConnection func() (net.Conn, err
 		Closed:        false,
 		lock:          &sync.Mutex{},
 	}
-	fmt.Println(connectionNum)
 	for i := 0; i < connectionNum; i++ {
 		go func() {
 			conn, err := pool.ConnCreator()
@@ -44,16 +40,6 @@ func NewConnectionPool(connectionNum int, createConnection func() (net.Conn, err
 }
 
 func (pool *ConnectionPool) FetchConnection() (conn net.Conn, err error) {
-	if pool.Closed {
-		err = errors.New("connection pool is closed")
-		return
-	}
-	conn = <-pool.Connections
-	return
-}
-
-// TODO: put connection no need to handle error. For utility, sometimes no need to arise error, based on condition. Use log or warning
-func (pool *ConnectionPool) PutConnection(conn net.Conn) (err error) {
 	var closed bool
 	pool.lock.Lock()
 	closed = pool.Closed
@@ -62,9 +48,21 @@ func (pool *ConnectionPool) PutConnection(conn net.Conn) (err error) {
 		err = errors.New("connection pool is closed")
 		return
 	}
+	conn = <-pool.Connections
+	return
+}
+
+func (pool *ConnectionPool) PutConnection(conn net.Conn) {
+	var closed bool
+	pool.lock.Lock()
+	closed = pool.Closed
+	pool.lock.Unlock()
+	if closed {
+		fmt.Println("Connection pool is closed")
+		return
+	}
 	fmt.Println("put connection")
 	pool.Connections <- conn
-	return
 }
 
 func (pool *ConnectionPool) Close() {
@@ -74,7 +72,7 @@ func (pool *ConnectionPool) Close() {
 	pool.lock.Lock()
 	pool.Closed = true
 	pool.lock.Unlock()
-	if pool.Closed {
+	if pool.ConnectionNum > 0 {
 		for i := 0; i < pool.ConnectionNum; i++ {
 			conn := <-pool.Connections
 			err := conn.Close()
@@ -84,6 +82,9 @@ func (pool *ConnectionPool) Close() {
 				continue
 			}
 		}
+		pool.lock.Lock()
+		pool.ConnectionNum = 0
+		pool.lock.Unlock()
 	}
 }
 
