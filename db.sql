@@ -9,7 +9,3 @@ BEGIN
     SET num = num + 1;
   End WHILE;
 End$$
-
-
--- /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin
--- /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/mysql/bin

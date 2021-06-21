@@ -8,12 +8,12 @@ import (
 	"strconv"
 )
 
-const SIZE_LEN = 8
+const SizeLen = 8
 
 func Send(conn net.Conn, bytes []byte) error {
 	size := len(bytes)
 	// send the total size first
-	sizeBytes := make([]byte, SIZE_LEN)
+	sizeBytes := make([]byte, SizeLen)
 	binary.BigEndian.PutUint64(sizeBytes, uint64(size))
 	n, sizeErr := conn.Write(sizeBytes)
 	fmt.Println("write size " + strconv.Itoa(n))
@@ -36,13 +36,13 @@ func Send(conn net.Conn, bytes []byte) error {
 }
 
 func Receive(conn net.Conn) ([]byte, error) {
-	sizeBuf := make([]byte, SIZE_LEN)
+	sizeBuf := make([]byte, SizeLen)
 	n, sizeErr := conn.Read(sizeBuf)
 	fmt.Println("read size " + strconv.Itoa(n))
 	if sizeErr != nil {
 		return nil, sizeErr
 	}
-	if n < SIZE_LEN {
+	if n < SizeLen {
 		return nil, errors.New("receive: read error of size")
 	}
 	size := binary.BigEndian.Uint64(sizeBuf)
