@@ -38,7 +38,7 @@ func StartHttp() (err error) {
 }
 
 func initConnectionToTcp() (net.Conn, error) {
-	socket, err := net.Dial("tcp", serverConfig[config.TcpHost]+":"+serverConfig[config.TcpPort])
+	socket, err := net.DialTimeout("tcp", serverConfig[config.TcpHost]+":"+serverConfig[config.TcpPort], 5*time.Second)
 	if err != nil {
 		fmt.Println("Error in connection to tcp: " + err.Error())
 		return nil, err
@@ -58,17 +58,17 @@ func handleLoginRequest(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	defer connectionPool.PutConnection(conn)
-	var loginArgs model.LoginArgs
-	if err = json.NewDecoder(request.Body).Decode(&loginArgs); err != nil {
+	var loginParams model.LoginParams
+	if err = json.NewDecoder(request.Body).Decode(&loginParams); err != nil {
 		fmt.Println("handleLoginRequest, json decode error: " + err.Error())
 		w.WriteHeader(statusCode.ServerError)
 		return
 	}
-	loginArgs.RequestType = requestType.Login
+	loginParams.RequestType = requestType.Login
 	var (
 		argBytes []byte
 	)
-	if argBytes, err = json.Marshal(loginArgs); err != nil {
+	if argBytes, err = json.Marshal(loginParams); err != nil {
 		fmt.Println("handleLoginRequest, json marshal error: " + err.Error())
 		w.WriteHeader(statusCode.ServerError)
 		return
@@ -111,6 +111,12 @@ func handleUpdateAvatarRequest(w http.ResponseWriter, request *http.Request) {
 		w.WriteHeader(statusCode.InvalidParams)
 		return
 	}
+	var cookie *http.Cookie
+	if cookie, err = request.Cookie(username[0]); err != nil || cookie.Value == "" {
+		fmt.Println("handleUpdateAvatarRequest, user not authorized")
+		w.WriteHeader(statusCode.Unauthorized)
+		return
+	}
 	fmt.Println("Update " + username[0] + " avatar")
 	var (
 		file   multipart.File
@@ -127,9 +133,9 @@ func handleUpdateAvatarRequest(w http.ResponseWriter, request *http.Request) {
 		w.WriteHeader(statusCode.ServerError)
 		return
 	}
-	updateAvatarArgs := model.NewUpdateAvatarArgs(username[0], requestType.UpdateAvatar, filepath.Ext(header.Filename), buf.Bytes())
+	updateAvatarParams := model.NewUpdateAvatarParams(username[0], requestType.UpdateAvatar, filepath.Ext(header.Filename), buf.Bytes(), cookie.Value)
 	var argBytes []byte
-	if argBytes, err = json.Marshal(updateAvatarArgs); err != nil {
+	if argBytes, err = json.Marshal(updateAvatarParams); err != nil {
 		fmt.Println("handleUpdateAvatarRequest, json marshal error: " + err.Error())
 		w.WriteHeader(statusCode.ServerError)
 		return
@@ -159,13 +165,13 @@ func handleUpdateNickNameRequest(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	defer connectionPool.PutConnection(conn)
-	var updateNickNameArgs model.UpdateNicknameArgs
-	if err = json.NewDecoder(request.Body).Decode(&updateNickNameArgs); err != nil {
+	var updateNickNameParams model.UpdateNicknameParams
+	if err = json.NewDecoder(request.Body).Decode(&updateNickNameParams); err != nil {
 		fmt.Println("handleUpdateNicknameRequest, json decode error: " + err.Error())
 		w.WriteHeader(statusCode.ServerError)
 		return
 	}
-	if _, err := request.Cookie(updateNickNameArgs.Username); err != nil {
+	if _, err := request.Cookie(updateNickNameParams.Username); err != nil {
 		if err == http.ErrNoCookie {
 			fmt.Println("Invalid token")
 			w.WriteHeader(statusCode.Unauthorized)
@@ -174,9 +180,9 @@ func handleUpdateNickNameRequest(w http.ResponseWriter, request *http.Request) {
 		}
 		return
 	}
-	updateNickNameArgs.RequestType = requestType.UpdateNickname
+	updateNickNameParams.RequestType = requestType.UpdateNickname
 	var argBytes []byte
-	if argBytes, err = json.Marshal(updateNickNameArgs); err != nil {
+	if argBytes, err = json.Marshal(updateNickNameParams); err != nil {
 		fmt.Println("handleUpdateNicknameRequest, json marshal error: " + err.Error())
 		w.WriteHeader(statusCode.ServerError)
 		return

@@ -40,8 +40,23 @@ func (c *CacheStore) SetUser(ctx context.Context, username string, user *model.U
 	return
 }
 
-func (c *CacheStore) ClearUser(ctx context.Context, username string) (err error) {
-	err = c.rds.HDel(ctx, username).Err()
+func (c *CacheStore) DeleteUser(ctx context.Context, username string) (err error) {
+	err = c.rds.Del(ctx, username).Err()
+	return
+}
+
+func (c *CacheStore) SetUserSession(ctx context.Context, username string, token string) (err error) {
+	err = c.rds.Set(ctx, "Session/"+username, token, 0).Err()
+	return
+}
+
+func (c *CacheStore) GetUserSession(ctx context.Context, username string) (token string, err error) {
+	token, err = c.rds.Get(ctx, "Session/"+username).Result()
+	return
+}
+
+func (c *CacheStore) DeleteUserSession(ctx context.Context, username string) (err error) {
+	err = c.rds.Del(ctx, "Session/"+username).Err()
 	return
 }
 

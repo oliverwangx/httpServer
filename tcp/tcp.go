@@ -110,7 +110,7 @@ func handleRequest(request []byte) (resp model.Response, err error) {
 			return
 		}
 		resp, err = login(loginParams)
-		if err != nil {
+		if err != nil && resp.GetRequestType() == "" {
 			resp = model.CastToTcpLoginResp(statusCode.ServerError, requestType.Login, model.User{}, "")
 			err = nil
 		}
@@ -120,20 +120,20 @@ func handleRequest(request []byte) (resp model.Response, err error) {
 			return
 		}
 		resp, err = updateAvatar(updateAvatarParams)
-		if err != nil {
+		if err != nil && resp.GetRequestType() == "" {
 			resp = model.CastToTcpUpdateResp(statusCode.ServerError, requestType.UpdateAvatar, model.User{})
-			err = nil
 		}
+		err = nil
 	case requestType.UpdateNickname:
 		updateNicknameParams := new(model.UpdateNicknameParams)
 		if err = json.Unmarshal(request, updateNicknameParams); err != nil {
 			return
 		}
 		resp, err = updateNickname(updateNicknameParams)
-		if err != nil {
+		if err != nil && resp.GetRequestType() == "" {
 			resp = model.CastToTcpUpdateResp(statusCode.ServerError, requestType.UpdateNickname, model.User{})
-			err = nil
 		}
+		err = nil
 	default:
 		err = errors.New("invalid command")
 	}
@@ -156,15 +156,14 @@ func login(params *model.LoginParams) (resp model.TcpLoginResponse, err error) {
 		return
 	}
 	// generate a session token
-	token := utils.Hash(user.Username)
-	fmt.Println("token generated: ", strconv.FormatUint(token, 16), "for ", user.Username)
-	tokenstr := strconv.FormatUint(token, 16)
-	if err = dataStore.SetUserSession(ctx, user.Username, tokenstr); err != nil {
+	token := strconv.FormatUint(utils.Hash(user.Username), 16)
+	fmt.Println("token generated: ", token, "for ", user.Username)
+	if err = dataStore.SetUserSession(ctx, user.Username, token); err != nil {
 		fmt.Println("Set user session error", err.Error())
 		return
 	}
 	user.Password = ""
-	resp = model.CastToTcpLoginResp(statusCode.Success, requestType.Login, *user, tokenstr)
+	resp = model.CastToTcpLoginResp(statusCode.Success, requestType.Login, *user, token)
 	return
 }
 
@@ -172,6 +171,11 @@ func updateAvatar(params *model.UpdateAvatarParams) (resp model.TcpUpdateRespons
 	fmt.Println("Update avatar")
 	if params.Username == "" || params.Avatar == nil {
 		resp = model.CastToTcpUpdateResp(statusCode.BadRequest, requestType.UpdateAvatar, model.User{})
+		return
+	}
+	var token string
+	if token, err = dataStore.GetUserSession(ctx, params.Username); err != nil || token != params.Token {
+		resp = model.CastToTcpUpdateResp(statusCode.Unauthorized, requestType.UpdateAvatar, model.User{})
 		return
 	}
 	var user *model.User

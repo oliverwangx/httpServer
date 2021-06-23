@@ -40,3 +40,8 @@ func (d *DBStore) SetUserSession(username string, token string) (err error) {
 	_, err = d.db.Exec("INSERT INTO Session (username, session) VALUES (?, ?)", username, token)
 	return
 }
+
+func (d *DBStore) GetUserSession(username string) (token string, err error) {
+	err = d.db.QueryRow("SELECT session FROM Session WHERE username = ?", username).Scan(&token)
+	return
+}
