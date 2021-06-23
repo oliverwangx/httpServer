@@ -2,8 +2,6 @@ package redisCache
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/Amadeus-cyf/httpServer/config"
 	"github.com/Amadeus-cyf/httpServer/model"
@@ -23,21 +21,11 @@ func (c *CacheStore) Init(serverConfig map[string]string) {
 }
 
 func (c *CacheStore) GetUserByUsername(ctx context.Context, username string) (user *model.User, err error) {
-	result := c.rds.HGetAll(ctx, username)
-	if result == nil {
-		fmt.Println("error in get user information")
-		user, err = nil, errors.New("nil result")
-		return
-	} else if result.Err() != nil {
-		fmt.Println("redis HGet All Error: " + result.Err().Error())
-		user, err = nil, result.Err()
+	var val map[string]string
+	if val, err = c.rds.HGetAll(ctx, username).Result(); err != nil {
 		return
 	}
-	if len(result.Val()) == 0 {
-		user = nil
-	} else {
-		user, err = castMapToUser(result.Val()), nil
-	}
+	user = castMapToUser(val)
 	return
 }
 
