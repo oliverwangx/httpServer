@@ -25,6 +25,11 @@ type UpdateNicknameParams struct {
 	Nickname    string
 }
 
+type LogoutParams struct {
+	Username    string
+	RequestType string
+}
+
 func NewLoginParams(requestType string, username string, password string) (param LoginParams) {
 	param = LoginParams{
 		Username:    username,

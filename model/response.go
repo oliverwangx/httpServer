@@ -35,6 +35,12 @@ type TcpUpdateResponse struct {
 	User        User
 }
 
+type TcpLogoutResponse struct {
+	StatusCode  int
+	RequestType string
+	Username    string
+}
+
 type ErrResponse struct {
 	StatusCode  int
 	RequestType string
@@ -98,6 +104,23 @@ func CastToTcpUpdateResp(statusCode int, requestType string, user User) (resp Tc
 	return
 }
 
+func CastToTcpLogoutResp(statusCode int, requestType string, username string) (resp TcpLogoutResponse) {
+	resp = TcpLogoutResponse{
+		StatusCode:  statusCode,
+		RequestType: requestType,
+		Username:    username,
+	}
+	return
+}
+
+func (r TcpLogoutResponse) GetStatusCode() int {
+	return r.StatusCode
+}
+
+func (r TcpLogoutResponse) GetRequestType() string {
+	return r.RequestType
+}
+
 func CastToHttpResponse(response Response) (r HttpResponse) {
 	r = HttpResponse{
 		StatusCode:  response.GetStatusCode(),
@@ -111,6 +134,8 @@ func CastToHttpResponse(response Response) (r HttpResponse) {
 		r.Body["token"] = response.(TcpLoginResponse).Token
 	case requestType.UpdateAvatar, requestType.UpdateNickname:
 		r.Body["user"] = response.(TcpUpdateResponse).User
+	case requestType.Logout:
+		r.Body["user"] = response.(TcpLogoutResponse).Username
 	}
 	return
 }

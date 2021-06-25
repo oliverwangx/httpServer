@@ -112,8 +112,8 @@ func handleRequest(request []byte) (resp model.Response, err error) {
 		resp, err = login(loginParams)
 		if err != nil && resp.GetRequestType() == "" {
 			resp = model.CastToTcpLoginResp(statusCode.ServerError, requestType.Login, model.User{}, "")
-			err = nil
 		}
+		err = nil
 	case requestType.UpdateAvatar:
 		updateAvatarParams := new(model.UpdateAvatarParams)
 		if err = json.Unmarshal(request, updateAvatarParams); err != nil {
@@ -132,6 +132,16 @@ func handleRequest(request []byte) (resp model.Response, err error) {
 		resp, err = updateNickname(updateNicknameParams)
 		if err != nil && resp.GetRequestType() == "" {
 			resp = model.CastToTcpUpdateResp(statusCode.ServerError, requestType.UpdateNickname, model.User{})
+		}
+		err = nil
+	case requestType.Logout:
+		logoutParams := new(model.LogoutParams)
+		if err = json.Unmarshal(request, logoutParams); err != nil {
+			return
+		}
+		resp, err = logout(logoutParams)
+		if err != nil && resp.GetRequestType() == "" {
+			resp = model.CastToTcpLogoutResp(statusCode.ServerError, requestType.Logout, logoutParams.Username)
 		}
 		err = nil
 	default:
@@ -222,6 +232,19 @@ func updateNickname(params *model.UpdateNicknameParams) (resp model.TcpUpdateRes
 	user.Nickname = params.Nickname
 	user.Password = ""
 	resp = model.CastToTcpUpdateResp(statusCode.Success, requestType.UpdateNickname, *user)
+	return
+}
+
+func logout(params *model.LogoutParams) (resp model.TcpLogoutResponse, err error) {
+	fmt.Println("Logout")
+	if err = dataStore.DeleteUserSession(ctx, params.Username); err != nil {
+		if err == sql.ErrNoRows {
+			resp = model.CastToTcpLogoutResp(statusCode.NotFound, requestType.Logout, params.Username)
+			return
+		}
+		return
+	}
+	resp = model.CastToTcpLogoutResp(statusCode.Success, requestType.Logout, params.Username)
 	return
 }
 

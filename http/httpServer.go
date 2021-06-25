@@ -167,28 +167,23 @@ func handleUpdateNickNameRequest(w http.ResponseWriter, request *http.Request) {
 	defer connectionPool.PutConnection(conn)
 	var updateNickNameParams model.UpdateNicknameParams
 	if err = json.NewDecoder(request.Body).Decode(&updateNickNameParams); err != nil {
-		fmt.Println("handleUpdateNicknameRequest, json decode error: " + err.Error())
+		fmt.Println("handleUpdateNicknameRequest, json decode error: ", err.Error())
 		w.WriteHeader(statusCode.ServerError)
 		return
 	}
-	if _, err := request.Cookie(updateNickNameParams.Username); err != nil {
-		if err == http.ErrNoCookie {
-			fmt.Println("Invalid token")
-			w.WriteHeader(statusCode.Unauthorized)
-		} else {
-			w.WriteHeader(statusCode.ServerError)
-		}
+	if cookie, err := request.Cookie(updateNickNameParams.Username); err != nil || cookie.Value == "" {
+		w.WriteHeader(statusCode.Unauthorized)
 		return
 	}
 	updateNickNameParams.RequestType = requestType.UpdateNickname
 	var argBytes []byte
 	if argBytes, err = json.Marshal(updateNickNameParams); err != nil {
-		fmt.Println("handleUpdateNicknameRequest, json marshal error: " + err.Error())
+		fmt.Println("handleUpdateNicknameRequest, json marshal error: ", err.Error())
 		w.WriteHeader(statusCode.ServerError)
 		return
 	}
 	if err := socketIO.Send(conn, argBytes); err != nil {
-		fmt.Println("handleUpdateNicknameRequest, send error: " + err.Error())
+		fmt.Println("handleUpdateNicknameRequest, send error: ", err.Error())
 		w.WriteHeader(statusCode.ServerError)
 		return
 	}
@@ -196,7 +191,40 @@ func handleUpdateNickNameRequest(w http.ResponseWriter, request *http.Request) {
 }
 
 func handleLogoutRequest(w http.ResponseWriter, request *http.Request) {
-
+	fmt.Println("handle logout request")
+	var (
+		conn net.Conn
+		err  error
+	)
+	if conn, err = connectionPool.FetchConnection(); err != nil {
+		fmt.Println("Connection error: " + err.Error())
+		w.WriteHeader(statusCode.ServerError)
+		return
+	}
+	defer connectionPool.PutConnection(conn)
+	var logoutParams model.LogoutParams
+	if err = json.NewDecoder(request.Body).Decode(&logoutParams); err != nil {
+		fmt.Println("handle logout request, json decode error: ", err.Error())
+		w.WriteHeader(statusCode.ServerError)
+		return
+	}
+	if cookie, err := request.Cookie(logoutParams.Username); err != nil || cookie.Value == "" {
+		w.WriteHeader(statusCode.Unauthorized)
+		return
+	}
+	logoutParams.RequestType = requestType.Logout
+	var argBytes []byte
+	if argBytes, err = json.Marshal(logoutParams); err != nil {
+		fmt.Println("LogoutRequest, json marshal error: ", err.Error())
+		w.WriteHeader(statusCode.ServerError)
+		return
+	}
+	if err := socketIO.Send(conn, argBytes); err != nil {
+		fmt.Println("handleUpdateNicknameRequest, send error: ", err.Error())
+		w.WriteHeader(statusCode.ServerError)
+		return
+	}
+	receiveResponse(conn, w)
 }
 
 func receiveResponse(conn net.Conn, w http.ResponseWriter) {
@@ -263,6 +291,13 @@ func handleTcpResponse(respBytes []byte) (resp model.HttpResponse, err error) {
 		var r model.TcpUpdateResponse
 		if err = json.Unmarshal(respBytes, &r); err != nil {
 			fmt.Println("handleTcpUpdateResponse, json unmarshal error:", err.Error())
+			return
+		}
+		resp = model.CastToHttpResponse(r)
+	case requestType.Logout:
+		var r model.TcpLogoutResponse
+		if err = json.Unmarshal(respBytes, &r); err != nil {
+			fmt.Println("handleTcpLogoutResponse, json unmarshal error", err.Error())
 			return
 		}
 		resp = model.CastToHttpResponse(r)

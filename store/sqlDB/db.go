@@ -45,3 +45,8 @@ func (d *DBStore) GetUserSession(username string) (token string, err error) {
 	err = d.db.QueryRow("SELECT session FROM Session WHERE username = ?", username).Scan(&token)
 	return
 }
+
+func (d *DBStore) DeleteUserSession(username string) (err error) {
+	_, err = d.db.Exec("DELETE FROM Session Where username = ?", username)
+	return
+}

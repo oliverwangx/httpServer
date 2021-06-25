@@ -8,6 +8,7 @@ import (
 	"github.com/Amadeus-cyf/httpServer/model"
 	"github.com/Amadeus-cyf/httpServer/store/redisCache"
 	"github.com/Amadeus-cyf/httpServer/store/sqlDB"
+	"github.com/go-redis/redis/v8"
 )
 
 type DataStore struct {
@@ -65,15 +66,23 @@ func (d *DataStore) SetUserSession(ctx context.Context, username string, token s
 	if err = d.db.SetUserSession(username, token); err != nil {
 		return
 	}
-	if err = d.cache.SetUserSession(ctx, username, token); err != nil {
-		return
-	}
+	err = d.cache.SetUserSession(ctx, username, token)
 	return
 }
 
 func (d *DataStore) GetUserSession(ctx context.Context, username string) (token string, err error) {
 	if token, err = d.cache.GetUserSession(ctx, username); err != nil {
 		token, err = d.db.GetUserSession(username)
+	}
+	return
+}
+
+func (d *DataStore) DeleteUserSession(ctx context.Context, username string) (err error) {
+	if err = d.db.DeleteUserSession(username); err != nil {
+		return
+	}
+	if err = d.cache.DeleteUserSession(ctx, username); err == redis.Nil {
+		err = nil
 	}
 	return
 }
