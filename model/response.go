@@ -135,7 +135,7 @@ func CastToHttpResponse(response Response) (r HttpResponse) {
 	case requestType.UpdateAvatar, requestType.UpdateNickname:
 		r.Body["user"] = response.(TcpUpdateResponse).User
 	case requestType.Logout:
-		r.Body["user"] = response.(TcpLogoutResponse).Username
+		r.Body["username"] = response.(TcpLogoutResponse).Username
 	}
 	return
 }

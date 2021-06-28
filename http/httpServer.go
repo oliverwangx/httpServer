@@ -209,6 +209,7 @@ func handleLogoutRequest(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	if cookie, err := request.Cookie(logoutParams.Username); err != nil || cookie.Value == "" {
+		fmt.Println("user not authorized")
 		w.WriteHeader(statusCode.Unauthorized)
 		return
 	}
@@ -245,6 +246,8 @@ func receiveResponse(conn net.Conn, w http.ResponseWriter) {
 	if resp.RequestType == requestType.Login {
 		// set cookie for http
 		setCookie(w, resp)
+	} else if resp.RequestType == requestType.Logout {
+		deleteCookie(w, resp.Body["username"].(string))
 	}
 	writeResponse(w, resp)
 }
@@ -255,6 +258,11 @@ func setCookie(w http.ResponseWriter, response model.HttpResponse) {
 		cookie := http.Cookie{Name: sessionInfo["user"].(model.User).Username, Value: sessionInfo["token"].(string)}
 		http.SetCookie(w, &cookie)
 	}
+}
+
+func deleteCookie(w http.ResponseWriter, username string) {
+	cookie := http.Cookie{Name: username, Value: "", Expires: time.Unix(0, 0)}
+	http.SetCookie(w, &cookie)
 }
 
 func writeResponse(w http.ResponseWriter, response model.HttpResponse) {
