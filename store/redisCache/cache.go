@@ -2,6 +2,7 @@ package redisCache
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/Amadeus-cyf/httpServer/config"
 	"github.com/Amadeus-cyf/httpServer/model"
@@ -21,22 +22,20 @@ func (c *CacheStore) Init(serverConfig map[string]string) {
 }
 
 func (c *CacheStore) GetUserByUsername(ctx context.Context, username string) (user *model.User, err error) {
-	var val map[string]string
-	if val, err = c.rds.HGetAll(ctx, username).Result(); err != nil {
+	var val string
+	if val, err = c.rds.Get(ctx, username).Result(); err != nil {
 		return
 	}
-	user = castMapToUser(val)
+	err = json.Unmarshal([]byte(val), user)
 	return
 }
 
 func (c *CacheStore) SetUser(ctx context.Context, username string, user *model.User) (err error) {
-	data := map[string]string{
-		"username": user.Username,
-		"avatar":   user.Avatar,
-		"nickname": user.Nickname,
-		"password": user.Password,
+	var data []byte
+	if data, err = json.Marshal(*user); err != nil {
+		return
 	}
-	err = c.rds.HSet(ctx, username, data).Err()
+	err = c.rds.Set(ctx, username, data, 0).Err()
 	return
 }
 
@@ -57,15 +56,5 @@ func (c *CacheStore) GetUserSession(ctx context.Context, username string) (token
 
 func (c *CacheStore) DeleteUserSession(ctx context.Context, username string) (err error) {
 	err = c.rds.Del(ctx, "Session/"+username).Err()
-	return
-}
-
-func castMapToUser(data map[string]string) (user *model.User) {
-	user = &model.User{
-		Username: data["username"],
-		Avatar:   data["avatar"],
-		Nickname: data["nickname"],
-		Password: data["password"],
-	}
 	return
 }

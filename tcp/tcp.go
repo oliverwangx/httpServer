@@ -70,30 +70,30 @@ func listen() (err error) {
 
 func receiveRequest(conn net.Conn) {
 	defer conn.Close()
-	for {
-		var req []byte
-		var err error
-		var response model.Response
-		if req, err = socketIO.Receive(conn); err != nil {
-			fmt.Println("process request error: " + err.Error())
-			response = model.NewErrResponse()
-		}
-		if response, err = handleRequest(req); err != nil {
-			fmt.Println("handle request error: " + err.Error())
-			response = model.NewErrResponse()
-			return
-		}
-		fmt.Println(response)
-		var responseBytes []byte
-		if responseBytes, err = json.Marshal(response); err != nil {
-			fmt.Println("process request error: " + err.Error())
-			return
-		}
-		if err = socketIO.Send(conn, responseBytes); err != nil {
-			fmt.Println("process request error: " + err.Error())
-			return
-		}
+	// for {
+	var req []byte
+	var err error
+	var response model.Response
+	if req, err = socketIO.Receive(conn); err != nil {
+		fmt.Println("process request error: " + err.Error())
+		response = model.NewErrResponse()
 	}
+	if response, err = handleRequest(req); err != nil {
+		fmt.Println("handle request error: " + err.Error())
+		response = model.NewErrResponse()
+		return
+	}
+	fmt.Println(response)
+	var responseBytes []byte
+	if responseBytes, err = json.Marshal(response); err != nil {
+		fmt.Println("process request error: " + err.Error())
+		return
+	}
+	if err = socketIO.Send(conn, responseBytes); err != nil {
+		fmt.Println("process request error: " + err.Error())
+		return
+	}
+	// }
 }
 
 func handleRequest(request []byte) (resp model.Response, err error) {
