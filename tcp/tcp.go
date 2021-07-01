@@ -70,7 +70,6 @@ func listen() (err error) {
 
 func receiveRequest(conn net.Conn) {
 	defer conn.Close()
-	// for {
 	var req []byte
 	var err error
 	var response model.Response
@@ -93,7 +92,6 @@ func receiveRequest(conn net.Conn) {
 		fmt.Println("process request error: " + err.Error())
 		return
 	}
-	// }
 }
 
 func handleRequest(request []byte) (resp model.Response, err error) {
