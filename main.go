@@ -20,7 +20,7 @@ func main() {
 	case "tcp":
 		err := tcp.StartTCP()
 		if err != nil {
-			fmt.Println("startTcp: " + err.Error())
+			fmt.Println("start tcp: " + err.Error())
 		}
 	case "http":
 		err := httpServer.StartHttp()

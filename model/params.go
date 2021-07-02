@@ -30,15 +30,6 @@ type LogoutParams struct {
 	RequestType string
 }
 
-func NewLoginParams(requestType string, username string, password string) (param LoginParams) {
-	param = LoginParams{
-		Username:    username,
-		RequestType: requestType,
-		Password:    password,
-	}
-	return
-}
-
 func NewUpdateAvatarParams(username string, requestType string, format string, avatar []byte, token string) (param UpdateAvatarParams) {
 	param = UpdateAvatarParams{
 		Username:    username,

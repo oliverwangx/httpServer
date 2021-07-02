@@ -119,17 +119,10 @@ func handleUpdateAvatarRequest(w http.ResponseWriter, request *http.Request) {
 	}
 	fmt.Println("Update " + username[0] + " avatar")
 	var (
-		file   multipart.File
+		buf    *bytes.Buffer
 		header *multipart.FileHeader
 	)
-	if file, header, err = request.FormFile("data"); err != nil {
-		fmt.Println("handleUpdateAvatarRequest, form file fetch error: " + err.Error())
-		w.WriteHeader(statusCode.ServerError)
-		return
-	}
-	buf := bytes.NewBuffer(nil)
-	if _, err := io.Copy(buf, file); err != nil {
-		fmt.Println("handleUpdateAvatarRequest, copy file to buffer error: " + err.Error())
+	if buf, header, err = getBufferFromFile(request); err != nil {
 		w.WriteHeader(statusCode.ServerError)
 		return
 	}
@@ -309,6 +302,20 @@ func handleTcpResponse(respBytes []byte) (resp model.HttpResponse, err error) {
 			return
 		}
 		resp = model.CastToHttpResponse(r)
+	}
+	return
+}
+
+func getBufferFromFile(request *http.Request) (buf *bytes.Buffer, header *multipart.FileHeader, err error) {
+	var file multipart.File
+	if file, header, err = request.FormFile("data"); err != nil {
+		fmt.Println("handleUpdateAvatarRequest, form file fetch error: " + err.Error())
+		return
+	}
+	buf = bytes.NewBuffer(nil)
+	if _, err = io.Copy(buf, file); err != nil {
+		fmt.Println("handleUpdateAvatarRequest, copy file to buffer error: " + err.Error())
+		return
 	}
 	return
 }
